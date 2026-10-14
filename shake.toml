@@ -1,0 +1,7 @@
+[sync_reader]
+cluster = false
+address = "127.0.0.1:6379"
+
+[redis_writer]
+cluster = false
+address = "127.0.0.1:6380"

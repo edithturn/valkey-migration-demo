@@ -1,0 +1,19 @@
+services:
+  source:
+    image: redis:7.2
+    container_name: source
+    ports:
+      - "6379:6379"
+    networks:
+      - migration
+
+  target:
+    image: valkey/valkey:9.1
+    container_name: target
+    ports:
+      - "6380:6379"
+    networks:
+      - migration
+
+networks:
+  migration:

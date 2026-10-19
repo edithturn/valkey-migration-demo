@@ -15,16 +15,16 @@ Redis 7.2  ──► RedisShake ──► Valkey 9.1
 
 RedisShake runs in four phases:
 
-**Phase 1 — Handshake**
+**Phase 1: Handshake**
 RedisShake connects to source Redis and identifies itself as a replica using the PSync protocol. Redis thinks it is talking to another Redis node joining as a replica.
 
-**Phase 2 — RDB snapshot (bulk copy)**
-Redis forks itself and writes a full snapshot of everything in memory. RedisShake receives that snapshot and writes every key to Valkey using `RESTORE` commands. Your source keeps serving traffic normally during this — the fork is copy-on-write, so Redis does not pause.
+**Phase 2: RDB snapshot (bulk copy)**
+Redis forks itself and writes a full snapshot of everything in memory. RedisShake receives that snapshot and writes every key to Valkey using `RESTORE` commands. Your source keeps serving traffic normally during this, the fork is copy-on-write, so Redis does not pause.
 
-**Phase 3 — AOF live stream (continuous sync)**
-Once the snapshot is done, Redis keeps the replication connection open and streams every new write command in real time — the same mechanism it uses for its own replicas. RedisShake receives each command and forwards it to Valkey. This is the `syncing aof, diff=[0]` phase. It runs indefinitely until you stop it.
+**Phase 3: AOF live stream (continuous sync)**
+Once the snapshot is done, Redis keeps the replication connection open and streams every new write command in real time; the same mechanism it uses for its own replicas. RedisShake receives each command and forwards it to Valkey. This is the `syncing aof, diff=[0]` phase. It runs indefinitely until you stop it.
 
-**Phase 4 — Cutover**
+**Phase 4: Cutover**
 You stop RedisShake, point your application at Valkey, and stop Redis.
 
 ```mermaid
@@ -41,7 +41,7 @@ sequenceDiagram
     Src-->>RS: RDB snapshot
     RS->>Dst: RESTORE all keys
 
-    Note over Src,Dst: RDB phase complete — existing data migrated
+    Note over Src,Dst: RDB phase complete, existing data migrated
 
     loop AOF live stream
         App->>Src: SET session:new_user active
@@ -49,7 +49,7 @@ sequenceDiagram
         RS->>Dst: forward command
     end
 
-    Note over App,Dst: Cutover — point app to Valkey, stop Redis
+    Note over App,Dst: Cutover: point app to Valkey, stop Redis
     App->>Dst: normal traffic
 ```
 
@@ -58,11 +58,11 @@ sequenceDiagram
 | Component | What it does |
 |---|---|
 | Source Redis | Forks once for BGSAVE, then streams replication commands continuously |
-| RedisShake | Reads from source, optionally filters, writes to target — all in memory |
+| RedisShake | Reads from source, optionally filters, writes to target, all in memory |
 | Target Valkey | Receives RESTORE commands during RDB phase, then live commands |
-| Your app | Nothing changes — keeps talking to Redis until you cut over |
+| Your app | Nothing changes, keeps talking to Redis until you cut over |
 
-The heaviest moment is the RDB phase: Redis forks, which temporarily doubles memory usage on the source. After that, the AOF stream is lightweight — near-zero latency command forwarding.
+The heaviest moment is the RDB phase: Redis forks, which temporarily doubles memory usage on the source. After that, the AOF stream is lightweight, near-zero latency command forwarding.
 
 ---
 
@@ -73,15 +73,15 @@ The heaviest moment is the RDB phase: Redis forks, which temporarily doubles mem
 
 ---
 
-## Step 1 — Start the environment
+## Step 1: Start the environment
 
 ```bash
 docker compose up -d
 ```
 
 This starts:
-- `source` — Redis 7.2 on `localhost:6379`
-- `target` — Valkey 9.1 on `localhost:6380`
+- `source`: Redis 7.2 on `localhost:6379`
+- `target`: Valkey 9.1 on `localhost:6380`
 
 Verify both are up:
 
@@ -91,7 +91,7 @@ docker compose ps
 
 ---
 
-## Step 2 — Seed data into source Redis
+## Step 2: Seed data into source Redis
 
 ```bash
 ./seed.sh
@@ -122,7 +122,7 @@ docker exec target valkey-cli DBSIZE
 
 ---
 
-## Step 3 — Download RedisShake
+## Step 3: Download RedisShake
 
 Check your architecture:
 
@@ -154,7 +154,7 @@ Check the [releases page](https://github.com/tair-opensource/RedisShake/releases
 
 ---
 
-## Step 4 — Review the migration config
+## Step 4: Review the migration config
 
 ```bash
 cat shake.toml
@@ -174,7 +174,7 @@ address = "127.0.0.1:6380"
 
 ---
 
-## Step 5 — Run RedisShake
+## Step 5: Run RedisShake
 
 Make sure the target is empty before starting. If you have run this demo before, flush Valkey first:
 
@@ -190,18 +190,18 @@ Then start the migration:
 
 Watch the log output. You will see two phases:
 
-1. **RDB phase** — RedisShake connects and copies all existing keys to the target.
-2. **AOF phase** — RedisShake stays alive and forwards every new write from source to target in real time. Look for this line to confirm you are in the live phase:
+1. **RDB phase**: RedisShake connects and copies all existing keys to the target.
+2. **AOF phase** : RedisShake stays alive and forwards every new write from source to target in real time. Look for this line to confirm you are in the live phase:
    ```
    INF syncing aof, diff=[0]
    ```
    `diff=[0]` means source and target are fully in sync.
 
-The process does not exit — this is intentional. Leave it running and open a second terminal.
+The process does not exit, this is intentional. Leave it running and open a second terminal.
 
 ---
 
-## Step 6 — Verify existing data migrated
+## Step 6: Verify existing data migrated
 
 ```bash
 ./verify.sh
@@ -239,11 +239,11 @@ item:445
 5
 ```
 
-> Note: keys with short TTLs (rate limit counters, short-lived sessions) may have expired by the time you run this — that is expected and both sides will still match.
+> Note: keys with short TTLs (rate limit counters, short-lived sessions) may have expired by the time you run this, that is expected and both sides will still match.
 
 ---
 
-## Step 7 — Write to source while RedisShake is running
+## Step 7: Write to source while RedisShake is running
 
 With RedisShake still running in the other terminal, write a new key to the source:
 
@@ -262,7 +262,7 @@ The write went to Redis 7.2. RedisShake forwarded it to Valkey 9.1. The target i
 
 ---
 
-## Step 8 — Stop RedisShake and cut over
+## Step 8: Stop RedisShake and cut over
 
 When you are satisfied the target is in sync, stop RedisShake (`Ctrl+C`), point your application at `localhost:6380`, and stop the source:
 

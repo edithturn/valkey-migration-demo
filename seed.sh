@@ -16,8 +16,8 @@ $CLI HSET cart:8821 item:101 2 item:203 1 item:445 5
 $CLI HSET cart:9034 item:88  1 item:301 3
 
 # Rate limiting counters
-$CLI SET rate_limit:api:203 42 EX 60
-$CLI SET rate_limit:api:891 17 EX 60
+$CLI SET rate_limit:api:203 42
+$CLI SET rate_limit:api:891 17
 
 # Feature flags
 $CLI SET feature:dark_mode    1
